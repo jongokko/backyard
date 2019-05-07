@@ -16,6 +16,7 @@ class States(Enum):
     WAYPOINT = 3
     LANDING = 4
     DISARMING = 5
+    WAYPOINTWAIT = 6
 
 
 class BackyardFlyer(Drone):
@@ -49,9 +50,10 @@ class BackyardFlyer(Drone):
         elif self.flight_state == States.WAYPOINT:
             if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) <1.0:
                 if len(self.all_waypoints)>0:
-                    self.waypoint_transition()
+                    # self.waypoint_transition()
+                    self.flight_state = States.WAYPOINTWAIT
                 else:
-                    if np.linalg.norm(self.local_position[0:2]) < 1.0:
+                    if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
                         self.landing_transition()
 
     def velocity_callback(self):
@@ -64,6 +66,11 @@ class BackyardFlyer(Drone):
             if self.global_position[2] - self.global_home[2] < 0.1:
                 if abs(self.local_position[2] < 0.1):
                     self.disarming_transition()
+
+        elif self.flight_state == States.WAYPOINTWAIT:
+            if np.linalg.norm(self.local_velocity[0:2]) < 1.0:
+                self.waypoint_transition()
+
 
     def state_callback(self):
         """
@@ -80,10 +87,10 @@ class BackyardFlyer(Drone):
                     self.takeoff_transition()
 
             elif self.flight_state == States.LANDING:
-                self.disarming_transition()
+                self.landing_transition()
 
             elif self.flight_state == States.DISARMING:
-                if ~self.armed & ~self.guided:
+                if not self.armed and not self.guided:
                     self.manual_transition()
 
     def calculate_box(self):
